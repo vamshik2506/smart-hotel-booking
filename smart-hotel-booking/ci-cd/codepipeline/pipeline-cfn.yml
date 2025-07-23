@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Smart Hotel Booking - CI/CD Pipeline for Microservices
+Description: Smart Hotel Booking - End-to-End CI/CD Pipeline
 
 Parameters:
   GitHubOwner:
@@ -10,8 +10,27 @@ Parameters:
     Type: String
   GitHubOAuthToken:
     Type: String
+  ArtifactBucket:
+    Type: String
+  ClusterName:
+    Type: String
+  BookingServiceName:
+    Type: String
+  InventoryServiceName:
+    Type: String
+  LoyaltyServiceName:
+    Type: String
+  LintProjectName:
+    Type: String
+  CodeBuildBookingProject:
+    Type: String
+  CodeBuildInventoryProject:
+    Type: String
+  CodeBuildLoyaltyProject:
+    Type: String
 
 Resources:
+
   PipelineRole:
     Type: AWS::IAM::Role
     Properties:
@@ -32,11 +51,11 @@ Resources:
       RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Type: S3
-        Location: !Sub "${AWS::AccountId}-codepipeline-artifacts"
+        Location: !Ref ArtifactBucket
       Stages:
         - Name: Source
           Actions:
-            - Name: SourceAction
+            - Name: GitHubSource
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
@@ -49,11 +68,23 @@ Resources:
                 Repo: !Ref GitHubRepo
                 Branch: !Ref GitHubBranch
                 OAuthToken: !Ref GitHubOAuthToken
-              RunOrder: 1
 
-        - Name: Build
+        - Name: LintCFN
           Actions:
-            - Name: BuildAction
+            - Name: LintTemplates
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              InputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ProjectName: !Ref LintProjectName
+
+        - Name: BuildMicroservices
+          Actions:
+            - Name: BookingBuild
               ActionTypeId:
                 Category: Build
                 Owner: AWS
@@ -62,79 +93,77 @@ Resources:
               InputArtifacts:
                 - Name: SourceOutput
               OutputArtifacts:
-                - Name: BuildOutput
+                - Name: BookingBuildOutput
               Configuration:
-                ProjectName: smart-hotel-codebuild-project
-              RunOrder: 1
+                ProjectName: !Ref CodeBuildBookingProject
 
-        - Name: DeployAuth
+            - Name: InventoryBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: InventoryBuildOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildInventoryProject
+
+            - Name: LoyaltyBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: LoyaltyBuildOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildLoyaltyProject
+
+        - Name: DeployToECS
           Actions:
-            - Name: DeployAuthStack
+            - Name: DeployBooking
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
-                Provider: CloudFormation
+                Provider: ECS
                 Version: 1
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: BookingBuildOutput
               Configuration:
-                ActionMode: CREATE_UPDATE
-                StackName: smart-hotel-auth
-                Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
-                ParameterOverrides: |
-                  {
-                    "ServiceName": "auth",
-                    "ContainerPort": "5000",
-                    "ContainerImage": "REPLACE_WITH_ECR_URL/auth:latest",
-                    "EnvironmentName": "dev"
-                  }
-              RunOrder: 1
+                ClusterName: !Ref ClusterName
+                ServiceName: !Ref BookingServiceName
+                FileName: imagedefinitions.json
 
-        - Name: DeployBooking
-          Actions:
-            - Name: DeployBookingStack
+            - Name: DeployInventory
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
-                Provider: CloudFormation
+                Provider: ECS
                 Version: 1
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: InventoryBuildOutput
               Configuration:
-                ActionMode: CREATE_UPDATE
-                StackName: smart-hotel-booking
-                Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
-                ParameterOverrides: |
-                  {
-                    "ServiceName": "booking",
-                    "ContainerPort": "5001",
-                    "ContainerImage": "REPLACE_WITH_ECR_URL/booking:latest",
-                    "EnvironmentName": "dev"
-                  }
-              RunOrder: 1
+                ClusterName: !Ref ClusterName
+                ServiceName: !Ref InventoryServiceName
+                FileName: imagedefinitions.json
 
-        - Name: DeployLoyalty
-          Actions:
-            - Name: DeployLoyaltyStack
+            - Name: DeployLoyalty
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
-                Provider: CloudFormation
+                Provider: ECS
                 Version: 1
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: LoyaltyBuildOutput
               Configuration:
-                ActionMode: CREATE_UPDATE
-                StackName: smart-hotel-loyalty
-                Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
-                ParameterOverrides: |
-                  {
-                    "ServiceName": "loyalty",
-                    "ContainerPort": "5002",
-                    "ContainerImage": "REPLACE_WITH_ECR_URL/loyalty:latest",
-                    "EnvironmentName": "dev"
-                  }
-              RunOrder: 1
+                ClusterName: !Ref ClusterName
+                ServiceName: !Ref LoyaltyServiceName
+                FileName: imagedefinitions.json
+
+Outputs:
+  PipelineName:
+    Value: !Ref Pipeline

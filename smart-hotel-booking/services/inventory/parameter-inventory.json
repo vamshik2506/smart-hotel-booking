@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "ServiceName",
+    "ParameterValue": "inventory"
+  },
+  {
+    "ParameterKey": "ContainerPort",
+    "ParameterValue": "3000"
+  },
+  {
+    "ParameterKey": "ImageUrl",
+    "ParameterValue": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/inventory:latest"
+  }
+]

@@ -5,15 +5,15 @@ Parameters:
   EnvironmentName:
     Type: String
     Description: Name of the environment (e.g., dev, prod)
-  
+
   ServiceName:
     Type: String
     Description: Name of the microservice (e.g., booking, inventory)
-  
+
   ContainerPort:
     Type: Number
     Description: Port on which the application listens inside the container
-  
+
   ImageUrl:
     Type: String
     Description: Full URI of the Docker image in ECR
@@ -60,8 +60,13 @@ Resources:
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
-          Subnets: !Split [",", !ImportValue !Sub "${EnvironmentName}-public-subnet-ids"]
+          Subnets: 
+            !Split 
+              - "," 
+              - !ImportValue 
+                Fn::Sub: "${EnvironmentName}-public-subnet-ids"
           SecurityGroups:
-            - !ImportValue !Sub "${EnvironmentName}-ecs-sg"
+            - !ImportValue 
+              Fn::Sub: "${EnvironmentName}-ecs-sg"
       TaskDefinition: !Ref TaskDefinition
       ServiceName: !Sub "${EnvironmentName}-${ServiceName}-svc"
