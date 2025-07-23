@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.10
+    commands:
+      - echo "Installing prerequisites (if any)"
+  build:
+    commands:
+      - echo "Building Docker images and Lambda functions"
+      - echo "TODO: Add Docker build and push commands here for ECS services"
+      - echo "TODO: Add AWS SAM or zip-based Lambda packaging here"
+  post_build:
+    commands:
+      - echo "[{\"name\":\"<service-name>\",\"imageUri\":\"$IMAGE_URI\"}]" > imagedefinitions.json
+
+artifacts:
+  files:
+    - cfn/env-dev/services.yml

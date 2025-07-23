@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "smart-hotel-cluster"
+  },
+  {
+    "ParameterKey": "BookingImageURI",
+    "ParameterValue": "placeholder"
+  },
+  {
+    "ParameterKey": "InventoryImageURI",
+    "ParameterValue": "placeholder"
+  },
+  {
+    "ParameterKey": "LoyaltyImageURI",
+    "ParameterValue": "placeholder"
+  }
+]

@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Smart Hotel Booking - Step Function Workflow
+
+Resources:
+
+  BookingStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowLambdaInvoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: "*"
+
+  BookingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: !GetAtt BookingStateMachineRole.Arn
+      DefinitionString:
+        !Sub |
+          {
+            "StartAt": "StartBooking",
+            "States": {
+              "StartBooking": {
+                "Type": "Task",
+                "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:bookingLambda",
+                "End": true
+              }
+            }
+          }
+
+Outputs:
+  StateMachineArn:
+    Value: !Ref BookingStateMachine

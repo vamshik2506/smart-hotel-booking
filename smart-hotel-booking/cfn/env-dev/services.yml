@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Smart Hotel Booking - Microservice Deployment to ECS
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Name of the environment (e.g., dev, prod)
+  
+  ServiceName:
+    Type: String
+    Description: Name of the microservice (e.g., booking, inventory)
+  
+  ContainerPort:
+    Type: Number
+    Description: Port on which the application listens inside the container
+  
+  ImageUrl:
+    Type: String
+    Description: Full URI of the Docker image in ECR
+
+Resources:
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentName}-${ServiceName}-ecsTaskExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${EnvironmentName}-${ServiceName}-task"
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Sub "${ServiceName}-container"
+          Image: !Ref ImageUrl
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !ImportValue
+        Fn::Sub: "${EnvironmentName}-ecs-cluster"
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Split [",", !ImportValue !Sub "${EnvironmentName}-public-subnet-ids"]
+          SecurityGroups:
+            - !ImportValue !Sub "${EnvironmentName}-ecs-sg"
+      TaskDefinition: !Ref TaskDefinition
+      ServiceName: !Sub "${EnvironmentName}-${ServiceName}-svc"
