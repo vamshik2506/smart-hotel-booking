@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: StackSet for global Loyalty service resources
+
+Parameters:
+  LoyaltyImageUri:
+    Type: String
+    Description: ECR Image URI for Loyalty Service
+
+Resources:
+
+  LoyaltyServiceImageParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /loyalty/image-uri
+      Type: String
+      Value: !Ref LoyaltyImageUri
+      Description: ECR Image URI for Loyalty service
+      Tier: Standard
+
+  LoyaltyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LoyaltyExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+Outputs:
+  LoyaltyImageUriParameter:
+    Description: SSM parameter name for the loyalty service image URI
+    Value: !Ref LoyaltyServiceImageParameter
+
+  ExecutionRoleName:
+    Description: Name of the IAM role used to run Loyalty tasks
+    Value: !Ref LoyaltyExecutionRole

@@ -3,18 +3,41 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.10
+      python: 3.9
     commands:
-      - echo "Installing prerequisites (if any)"
+      - pip install aws-sam-cli
+  pre_build:
+    commands:
+      - echo "Installing dependencies..."
+      - cd lambdas/generateInvoice
+      - pip install -r requirements.txt -t .
+      - cd ../notifyUser
+      - pip install -r requirements.txt -t .
   build:
     commands:
-      - echo "Building Docker images and Lambda functions"
-      - echo "TODO: Add Docker build and push commands here for ECS services"
-      - echo "TODO: Add AWS SAM or zip-based Lambda packaging here"
+      - echo "Packaging generateInvoice Lambda..."
+      - cd ../generateInvoice
+      - sam package \
+          --template-file template.yml \
+          --s3-bucket YOUR_S3_BUCKET_NAME \
+          --output-template-file packaged.yml
+      - echo "Packaging notifyUser Lambda..."
+      - cd ../notifyUser
+      - sam package \
+          --template-file template.yml \
+          --s3-bucket YOUR_S3_BUCKET_NAME \
+          --output-template-file packaged.yml
   post_build:
     commands:
-      - echo "[{\"name\":\"<service-name>\",\"imageUri\":\"$IMAGE_URI\"}]" > imagedefinitions.json
-
-artifacts:
-  files:
-    - cfn/env-dev/services.yml
+      - echo "Deploying generateInvoice Lambda..."
+      - cd ../generateInvoice
+      - sam deploy \
+          --template-file packaged.yml \
+          --stack-name generate-invoice-lambda \
+          --capabilities CAPABILITY_IAM
+      - echo "Deploying notifyUser Lambda..."
+      - cd ../notifyUser
+      - sam deploy \
+          --template-file packaged.yml \
+          --stack-name notify-user-lambda \
+          --capabilities CAPABILITY_IAM

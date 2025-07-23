@@ -1,99 +1,42 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CI/CD Pipeline for Smart Hotel Booking
+Description: Smart Hotel Booking - CI/CD Pipeline for Microservices
 
 Parameters:
   GitHubOwner:
     Type: String
-    Description: GitHub owner name (e.g., vamshik2506)
   GitHubRepo:
     Type: String
-    Description: GitHub repo name (e.g., smart-hotel-booking)
   GitHubBranch:
     Type: String
-    Default: main
   GitHubOAuthToken:
     Type: String
-    NoEcho: true
-    Description: GitHub OAuth token for source access
 
 Resources:
-  PipelineArtifactBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-
-  CodePipelineRole:
+  PipelineRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: smart-hotel-codepipeline-role
       AssumeRolePolicyDocument:
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
               Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: PipelinePolicy
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:*
-                  - codebuild:*
-                  - cloudformation:*
-                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
 
-  CodeBuildRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: CodeBuildPolicy
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:*
-                  - ecr:*
-                  - s3:*
-                  - cloudformation:*
-                  - ecs:*
-                Resource: "*"
-
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: smart-hotel-build
-      Source:
-        Type: GITHUB
-        Location: !Sub https://github.com/${GitHubOwner}/${GitHubRepo}
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        PrivilegedMode: true
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-      Artifacts:
-        Type: CODEPIPELINE
-
-  CodePipeline:
+  Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn: !GetAtt CodePipelineRole.Arn
+      RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Type: S3
-        Location: !Ref PipelineArtifactBucket
+        Location: !Sub "${AWS::AccountId}-codepipeline-artifacts"
       Stages:
         - Name: Source
           Actions:
-            - Name: GitHub_Source
+            - Name: SourceAction
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
@@ -110,7 +53,7 @@ Resources:
 
         - Name: Build
           Actions:
-            - Name: BuildApp
+            - Name: BuildAction
               ActionTypeId:
                 Category: Build
                 Owner: AWS
@@ -121,12 +64,12 @@ Resources:
               OutputArtifacts:
                 - Name: BuildOutput
               Configuration:
-                ProjectName: !Ref CodeBuildProject
+                ProjectName: smart-hotel-codebuild-project
               RunOrder: 1
 
-        - Name: Deploy
+        - Name: DeployAuth
           Actions:
-            - Name: CFN_Deploy
+            - Name: DeployAuthStack
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -136,7 +79,62 @@ Resources:
                 - Name: BuildOutput
               Configuration:
                 ActionMode: CREATE_UPDATE
-                StackName: smart-hotel-app
+                StackName: smart-hotel-auth
                 Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: BuildOutput::cfn/env-dev/services.yml
+                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
+                ParameterOverrides: |
+                  {
+                    "ServiceName": "auth",
+                    "ContainerPort": "5000",
+                    "ContainerImage": "REPLACE_WITH_ECR_URL/auth:latest",
+                    "EnvironmentName": "dev"
+                  }
+              RunOrder: 1
+
+        - Name: DeployBooking
+          Actions:
+            - Name: DeployBookingStack
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: smart-hotel-booking
+                Capabilities: CAPABILITY_NAMED_IAM
+                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
+                ParameterOverrides: |
+                  {
+                    "ServiceName": "booking",
+                    "ContainerPort": "5001",
+                    "ContainerImage": "REPLACE_WITH_ECR_URL/booking:latest",
+                    "EnvironmentName": "dev"
+                  }
+              RunOrder: 1
+
+        - Name: DeployLoyalty
+          Actions:
+            - Name: DeployLoyaltyStack
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildOutput
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: smart-hotel-loyalty
+                Capabilities: CAPABILITY_NAMED_IAM
+                TemplatePath: BuildOutput::cfn/env-dev/pipeline.yml
+                ParameterOverrides: |
+                  {
+                    "ServiceName": "loyalty",
+                    "ContainerPort": "5002",
+                    "ContainerImage": "REPLACE_WITH_ECR_URL/loyalty:latest",
+                    "EnvironmentName": "dev"
+                  }
               RunOrder: 1
