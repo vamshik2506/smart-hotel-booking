@@ -1,56 +1,44 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: CI/CD Pipeline for Smart Hotel Booking
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CodePipeline for Smart Hotel Booking
 
 Parameters:
-  GitHubOwner:
-    Type: String
-    Default: vamshik2506
-  GitHubRepo:
-    Type: String
-    Default: smart-hotel-booking
-  GitHubBranch:
-    Type: String
-    Default: main
-  GitHubToken:
-    Type: String
-    NoEcho: true
-    Description: GitHub access token stored in Secrets Manager
   ArtifactBucket:
     Type: String
-    Description: S3 bucket for storing pipeline artifacts
+  GitHubToken:
+    Type: String
 
 Resources:
 
-  ### IAM Role for CodePipeline
-  CodePipelineRole:
+  ### CodePipeline IAM Role
+  CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
               Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: CodePipelinePolicy
+        - PolicyName: CodePipelineAccess
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
-                  - codebuild:*
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
                   - s3:*
                   - iam:PassRole
-                  - secretsmanager:GetSecretValue
                 Resource: "*"
 
-  ### IAM Role for CodeBuild
+  ### CodeBuild IAM Role
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -59,11 +47,15 @@ Resources:
       Policies:
         - PolicyName: CodeBuildAccess
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
-                  - "*"
+                  - cloudformation:*
+                  - s3:*
+                  - logs:*
+                  - codebuild:*
+                  - iam:PassRole
                 Resource: "*"
 
   ### CodeBuild Projects (lint, deploy stages)
@@ -73,6 +65,7 @@ Resources:
       Name: lint-cfn
       Source:
         Type: CODEPIPELINE
+        BuildSpec: ci-cd/codebuild/lint-cfn-buildspec.yml   # ✅ FIXED: Specify path
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -87,104 +80,7 @@ Resources:
       Name: deploy-vpc
       Source:
         Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  DeployALBProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: deploy-alb
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  DeployECSClusterProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: deploy-ecs-cluster
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  DeployServicesProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: deploy-services
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  DeployStepFunctionsProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: deploy-step-functions
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  BookingPipelineProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: booking-pipeline
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  InventoryPipelineProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: inventory-pipeline
-      Source:
-        Type: CODEPIPELINE
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-
-  LoyaltyPipelineProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: loyalty-pipeline
-      Source:
-        Type: CODEPIPELINE
+        BuildSpec: ci-cd/codebuild/deploy-vpc-project-cfn.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -197,140 +93,51 @@ Resources:
   SmartHotelPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn: !GetAtt CodePipelineRole.Arn
+      Name: SmartHotelPipeline
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3
         Location: !Ref ArtifactBucket
-      Name: SmartHotel-ParentPipeline
       Stages:
         - Name: Source
           Actions:
-            - Name: SourcePull
+            - Name: SourceAction
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
                 Provider: GitHub
-                Version: '1'
+                Version: 1
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                Owner: !Ref GitHubOwner
-                Repo: !Ref GitHubRepo
-                Branch: !Ref GitHubBranch
+                Owner: vamshik2506
+                Repo: smart-hotel-booking
+                Branch: main
                 OAuthToken: !Ref GitHubToken
-                PollForSourceChanges: false
+              RunOrder: 1
 
-        - Name: LintCFN
+        - Name: Lint
           Actions:
-            - Name: RunCFNChecks
+            - Name: LintCFN
               ActionTypeId:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: 1
               InputArtifacts:
                 - Name: SourceOutput
-              OutputArtifacts:
-                - Name: LintOutput
-              Configuration:
-                ProjectName: !Ref LintCFNProject
+              ProjectName: !Ref LintCFNProject
+              RunOrder: 1
 
-        - Name: DeployInfra
+        - Name: Deploy
           Actions:
             - Name: DeployVPC
               ActionTypeId:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: 1
               InputArtifacts:
                 - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref DeployVPCProject
+              ProjectName: !Ref DeployVPCProject
               RunOrder: 1
-
-            - Name: DeployALB
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref DeployALBProject
-              RunOrder: 2
-
-            - Name: DeployECSCluster
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref DeployECSClusterProject
-              RunOrder: 3
-
-            - Name: DeployServices
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref DeployServicesProject
-              RunOrder: 4
-
-            - Name: DeployStepFunctions
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref DeployStepFunctionsProject
-              RunOrder: 5
-
-        - Name: TriggerChildPipelines
-          Actions:
-            - Name: TriggerBookingPipeline
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref BookingPipelineProject
-              RunOrder: 1
-
-            - Name: TriggerInventoryPipeline
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref InventoryPipelineProject
-              RunOrder: 2
-
-            - Name: TriggerLoyaltyPipeline
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: '1'
-              InputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                ProjectName: !Ref LoyaltyPipelineProject
-              RunOrder: 3
