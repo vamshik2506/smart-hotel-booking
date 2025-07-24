@@ -9,7 +9,7 @@ Parameters:
 
 Resources:
 
-  ### CodePipeline IAM Role
+  # IAM Role for CodePipeline
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -33,7 +33,7 @@ Resources:
                   - iam:PassRole
                 Resource: "*"
 
-  ### CodeBuild IAM Role
+  # IAM Role for CodeBuild
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
@@ -58,11 +58,10 @@ Resources:
                   - iam:PassRole
                 Resource: "*"
 
-  ### CodeBuild Projects
+  # CodeBuild Project: LintCFN
   LintCFNProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: lint-cfn
       Source:
         Type: CODEPIPELINE
         BuildSpec: ci-cd/codebuild/lint-cfn-buildspec.yml
@@ -73,11 +72,12 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:5.0
       ServiceRole: !GetAtt CodeBuildRole.Arn
+      Name: lint-cfn
 
+  # CodeBuild Project: Deploy VPC
   DeployVPCProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: deploy-vpc
       Source:
         Type: CODEPIPELINE
         BuildSpec: ci-cd/codebuild/deploy-vpc-project-cfn.yml
@@ -88,8 +88,9 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:5.0
       ServiceRole: !GetAtt CodeBuildRole.Arn
+      Name: deploy-vpc
 
-  ### CodePipeline Definition
+  # CodePipeline Definition
   SmartHotelPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
