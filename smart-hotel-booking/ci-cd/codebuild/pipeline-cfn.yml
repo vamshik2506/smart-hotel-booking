@@ -62,7 +62,7 @@ Resources:
               OutputArtifacts:
                 - Name: LintOutput
               Configuration:
-                ProjectName: lint-cfn-project
+                ProjectName: lint-cfn
               RunOrder: 1
 
         - Name: DeployInfra
