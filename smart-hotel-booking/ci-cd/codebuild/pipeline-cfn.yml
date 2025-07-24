@@ -64,7 +64,7 @@ Resources:
     Properties:
       Source:
         Type: CODEPIPELINE
-        BuildSpec: ci-cd/codebuild/lint-cfn-buildspec.yml
+        BuildSpec: smart-hotel-booking/ci-cd/codebuild/lint-cfn-buildspec.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -80,7 +80,7 @@ Resources:
     Properties:
       Source:
         Type: CODEPIPELINE
-        BuildSpec: ci-cd/codebuild/deploy-vpc-project-cfn.yml
+        BuildSpec: smart-hotel-booking/ci-cd/codebuild/deploy-vpc-project-cfn.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
