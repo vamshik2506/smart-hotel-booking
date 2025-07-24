@@ -58,14 +58,14 @@ Resources:
                   - iam:PassRole
                 Resource: "*"
 
-  ### CodeBuild Projects (lint, deploy stages)
+  ### CodeBuild Projects
   LintCFNProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: lint-cfn
       Source:
         Type: CODEPIPELINE
-        BuildSpec: ci-cd/codebuild/lint-cfn-buildspec.yml   # ✅ FIXED: Specify path
+        BuildSpec: ci-cd/codebuild/lint-cfn-buildspec.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -89,7 +89,7 @@ Resources:
         Image: aws/codebuild/standard:5.0
       ServiceRole: !GetAtt CodeBuildRole.Arn
 
-  ### CodePipeline
+  ### CodePipeline Definition
   SmartHotelPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -126,7 +126,8 @@ Resources:
                 Version: 1
               InputArtifacts:
                 - Name: SourceOutput
-              ProjectName: !Ref LintCFNProject
+              Configuration:
+                ProjectName: !Ref LintCFNProject
               RunOrder: 1
 
         - Name: Deploy
@@ -139,5 +140,6 @@ Resources:
                 Version: 1
               InputArtifacts:
                 - Name: SourceOutput
-              ProjectName: !Ref DeployVPCProject
+              Configuration:
+                ProjectName: !Ref DeployVPCProject
               RunOrder: 1
