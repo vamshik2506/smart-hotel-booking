@@ -1,30 +1,58 @@
 [
   {
-    "ParameterKey": "Environment",
-    "ParameterValue": "dev"
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/environment-name}}"
   },
   {
-    "ParameterKey": "ArtifactBucketName",
-    "ParameterValue": "pipeline-artifacts-dev-123456789012"
+    "ParameterKey": "ServiceName",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/service-name}}"
   },
   {
-    "ParameterKey": "PipelineRoleName",
-    "ParameterValue": "CodePipelineServiceRole-dev"
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/cluster-name}}"
   },
   {
-    "ParameterKey": "PipelineName",
-    "ParameterValue": "smart-hotel-dev-pipeline"
+    "ParameterKey": "ContainerPort",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/container-port}}"
   },
   {
-    "ParameterKey": "DeployStackName",
-    "ParameterValue": "SmartHotelInfra-dev"
+    "ParameterKey": "DesiredCount",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/desired-count}}"
   },
   {
-    "ParameterKey": "TemplatePath",
-    "ParameterValue": "SourceOutput::cfn/env-dev/pipelines.yml"
+    "ParameterKey": "TaskExecutionRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/task-execution-role-arn}}"
   },
   {
-    "ParameterKey": "LambdaFunctionName",
-    "ParameterValue": "devopsFailureHandlerLambda"
+    "ParameterKey": "TaskRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/task-role-arn}}"
+  },
+  {
+    "ParameterKey": "ImageUrl",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/image-url}}"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/vpc-id}}"
+  },
+  {
+    "ParameterKey": "SubnetIds",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/subnet-ids}}"
+  },
+  {
+    "ParameterKey": "SecurityGroupId",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/security-group-id}}"
+  },
+  {
+    "ParameterKey": "ListenerArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/listener-arn}}"
+  },
+  {
+    "ParameterKey": "TargetGroupArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/target-group-arn}}"
+  },
+  {
+    "ParameterKey": "PipelineRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/pipeline-role-arn}}"
   }
 ]

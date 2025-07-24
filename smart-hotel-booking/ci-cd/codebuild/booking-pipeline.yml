@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CodePipeline for Booking Microservice
+
+Resources:
+  BookingPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: "{{resolve:ssm:/booking/dev/pipeline-role-arn}}"
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: BookingSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName: "{{resolve:ssm:/booking/dev/service-name}}"
+                BranchName: "main"
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        - Name: Build
+          Actions:
+            - Name: BookingBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              InputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ProjectName: "build-booking-service"
