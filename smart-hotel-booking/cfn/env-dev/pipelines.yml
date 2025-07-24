@@ -1,117 +1,47 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Smart Hotel Booking - CI/CD Pipeline
+Description: CodePipeline for ECS-based service
 
 Parameters:
-  GitHubRepo:
+  EnvironmentName:
     Type: String
-  GitHubOwner:
+  ServiceName:
     Type: String
-  GitHubBranch:
-    Type: String
-    Default: main
-  GitHubOAuthToken:
-    Type: String
-    NoEcho: true
   ArtifactBucket:
     Type: String
-  ClusterName:
+  SourceRepo:
     Type: String
-  BookingServiceName:
+  BranchName:
     Type: String
-  InventoryServiceName:
+  PipelineRoleArn:
     Type: String
-  LoyaltyServiceName:
-    Type: String
+    Description: IAM role ARN for CodePipeline service execution
 
 Resources:
-
-  CodePipelineServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: smart-hotel-codepipeline-role
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codepipeline.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-
-  BookingCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: booking-service-build
-      Source:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        PrivilegedMode: true
-      ServiceRole: !GetAtt CodePipelineServiceRole.Arn
-      Artifacts:
-        Type: CODEPIPELINE
-
-  InventoryCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: inventory-service-build
-      Source:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        PrivilegedMode: true
-      ServiceRole: !GetAtt CodePipelineServiceRole.Arn
-      Artifacts:
-        Type: CODEPIPELINE
-
-  LoyaltyCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: loyalty-service-build
-      Source:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        PrivilegedMode: true
-      ServiceRole: !GetAtt CodePipelineServiceRole.Arn
-      Artifacts:
-        Type: CODEPIPELINE
-
-  Pipeline:
+  ServicePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Name: !Sub "${ServiceName}-${EnvironmentName}-pipeline"
+      RoleArn: !Ref PipelineRoleArn
       ArtifactStore:
         Type: S3
         Location: !Ref ArtifactBucket
       Stages:
         - Name: Source
           Actions:
-            - Name: GitHubSource
+            - Name: SourceAction
               ActionTypeId:
                 Category: Source
-                Owner: ThirdParty
-                Provider: GitHub
+                Owner: AWS
+                Provider: CodeCommit
                 Version: 1
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                Owner: !Ref GitHubOwner
-                Repo: !Ref GitHubRepo
-                Branch: !Ref GitHubBranch
-                OAuthToken: !Ref GitHubOAuthToken
-                PollForSourceChanges: false
-
+                RepositoryName: !Ref SourceRepo
+                BranchName: !Ref BranchName
         - Name: Build
           Actions:
-            - Name: BookingBuild
+            - Name: BuildAction
               ActionTypeId:
                 Category: Build
                 Owner: AWS
@@ -120,77 +50,7 @@ Resources:
               InputArtifacts:
                 - Name: SourceOutput
               OutputArtifacts:
-                - Name: BookingBuildOutput
+                - Name: BuildOutput
               Configuration:
-                ProjectName: !Ref BookingCodeBuildProject
+                ProjectName: !Sub "${ServiceName}-${EnvironmentName}-build"
 
-            - Name: InventoryBuild
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: 1
-              InputArtifacts:
-                - Name: SourceOutput
-              OutputArtifacts:
-                - Name: InventoryBuildOutput
-              Configuration:
-                ProjectName: !Ref InventoryCodeBuildProject
-
-            - Name: LoyaltyBuild
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: 1
-              InputArtifacts:
-                - Name: SourceOutput
-              OutputArtifacts:
-                - Name: LoyaltyBuildOutput
-              Configuration:
-                ProjectName: !Ref LoyaltyCodeBuildProject
-
-        - Name: Deploy
-          Actions:
-            - Name: DeployBooking
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: ECS
-                Version: 1
-              InputArtifacts:
-                - Name: BookingBuildOutput
-              Configuration:
-                ClusterName: !Ref ClusterName
-                ServiceName: !Ref BookingServiceName
-                FileName: imagedefinitions.json
-
-            - Name: DeployInventory
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: ECS
-                Version: 1
-              InputArtifacts:
-                - Name: InventoryBuildOutput
-              Configuration:
-                ClusterName: !Ref ClusterName
-                ServiceName: !Ref InventoryServiceName
-                FileName: imagedefinitions.json
-
-            - Name: DeployLoyalty
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: ECS
-                Version: 1
-              InputArtifacts:
-                - Name: LoyaltyBuildOutput
-              Configuration:
-                ClusterName: !Ref ClusterName
-                ServiceName: !Ref LoyaltyServiceName
-                FileName: imagedefinitions.json
-
-Outputs:
-  PipelineName:
-    Value: !Ref Pipeline

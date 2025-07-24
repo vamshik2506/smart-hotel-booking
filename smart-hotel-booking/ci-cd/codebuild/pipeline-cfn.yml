@@ -1,51 +1,166 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CodeBuild project for Smart Hotel
+Description: CI/CD Pipeline for Smart Hotel – No Hardcoding
 
 Parameters:
-  GitHubOwner:
+  Environment:
     Type: String
-  GitHubRepo:
+    Description: Environment name (e.g., dev, staging, prod)
+
+  RepositoryName:
     Type: String
-  GitHubBranch:
+    Description: The name of the CodeCommit or GitHub repository
+
+  BranchName:
     Type: String
+    Default: main
+    Description: Source code branch name
+
+  CFNLintProjectName:
+    Type: String
+    Description: CodeBuild project name for CloudFormation linting
+
+  BookingBuildProjectName:
+    Type: String
+    Description: CodeBuild project name for Booking microservice
+
+  InventoryBuildProjectName:
+    Type: String
+    Description: CodeBuild project name for Inventory microservice
+
+  LoyaltyBuildProjectName:
+    Type: String
+    Description: CodeBuild project name for Loyalty microservice
+
+  FailureHandlerLambdaName:
+    Type: String
+    Description: Name of the Lambda function for rollback/notifications
 
 Resources:
-  CodeBuildRole:
+
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "pipeline-artifacts-${Environment}-${AWS::AccountId}"
+
+  PipelineRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: smart-hotel-codebuild-role
+      RoleName: !Sub "CodePipelineServiceRole-${Environment}"
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              Service: codebuild.amazonaws.com
+              Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: CodeBuildAccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - '*'
-                Resource: '*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
 
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
+  DevPipeline:
+    Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: smart-hotel-codebuild-project
-      Source:
-        Type: GITHUB
-        Location: !Sub https://github.com/${GitHubOwner}/${GitHubRepo}.git
-        GitCloneDepth: 1
-        BuildSpec: buildspec.yml
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
-        Type: LINUX_CONTAINER
-        PrivilegedMode: true
-      ServiceRole: !GetAtt CodeBuildRole.Arn
-      Artifacts:
-        Type: CODEPIPELINE
-      SourceVersion: !Ref GitHubBranch
+      Name: !Sub "smart-hotel-${Environment}-pipeline"
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+
+        - Name: Source
+          Actions:
+            - Name: SourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: 1
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                RepositoryName: !Ref RepositoryName
+                BranchName: !Ref BranchName
+                PollForSourceChanges: true
+              RunOrder: 1
+
+        - Name: Lint
+          Actions:
+            - Name: CFNLint
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              InputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ProjectName: !Ref CFNLintProjectName
+              RunOrder: 1
+
+        - Name: DeployInfra
+          Actions:
+            - Name: DeployStack
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Sub "SmartHotelInfra-${Environment}"
+                TemplatePath: SourceOutput::cfn/env-${Environment}/pipelines.yml
+                Capabilities: CAPABILITY_NAMED_IAM
+                ParameterOverrides: !Sub |
+                  {
+                    "Environment": "${Environment}"
+                  }
+              RunOrder: 1
+
+        - Name: MicroserviceBuilds
+          Actions:
+            - Name: BuildBookingService
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref BookingBuildProjectName
+              RunOrder: 1
+
+            - Name: BuildInventoryService
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref InventoryBuildProjectName
+              RunOrder: 1
+
+            - Name: BuildLoyaltyService
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref LoyaltyBuildProjectName
+              RunOrder: 1
+
+        - Name: NotifyAndRollback
+          Actions:
+            - Name: TriggerRollbackLambda
+              ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: Lambda
+                Version: 1
+              Configuration:
+                FunctionName: !Ref FailureHandlerLambdaName
+              RunOrder: 1
+
+Outputs:
+  PipelineName:
+    Value: !Ref DevPipeline

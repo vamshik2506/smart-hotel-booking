@@ -1,0 +1,30 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "ArtifactBucketName",
+    "ParameterValue": "pipeline-artifacts-dev-123456789012"
+  },
+  {
+    "ParameterKey": "PipelineRoleName",
+    "ParameterValue": "CodePipelineServiceRole-dev"
+  },
+  {
+    "ParameterKey": "PipelineName",
+    "ParameterValue": "smart-hotel-dev-pipeline"
+  },
+  {
+    "ParameterKey": "DeployStackName",
+    "ParameterValue": "SmartHotelInfra-dev"
+  },
+  {
+    "ParameterKey": "TemplatePath",
+    "ParameterValue": "SourceOutput::cfn/env-dev/pipelines.yml"
+  },
+  {
+    "ParameterKey": "LambdaFunctionName",
+    "ParameterValue": "devopsFailureHandlerLambda"
+  }
+]

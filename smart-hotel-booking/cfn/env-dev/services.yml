@@ -1,72 +1,90 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Smart Hotel Booking - Microservice Deployment to ECS
+Description: ECS Service for Microservice
 
 Parameters:
   EnvironmentName:
     Type: String
-    Description: Name of the environment (e.g., dev, prod)
-
   ServiceName:
     Type: String
-    Description: Name of the microservice (e.g., booking, inventory)
-
+  ClusterName:
+    Type: String
   ContainerPort:
     Type: Number
-    Description: Port on which the application listens inside the container
-
+  DesiredCount:
+    Type: Number
+    Default: 2
+  TaskExecutionRoleArn:
+    Type: String
+  TaskRoleArn:
+    Type: String
   ImageUrl:
     Type: String
-    Description: Full URI of the Docker image in ECR
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  ListenerArn:
+    Type: String
+  TargetGroupArn:
+    Type: String
 
 Resources:
-
-  TaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${EnvironmentName}-${ServiceName}-ecsTaskExecutionRole"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub "${EnvironmentName}-${ServiceName}-task"
+      Family: !Sub "${ServiceName}-${EnvironmentName}"
       Cpu: "256"
       Memory: "512"
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
       ContainerDefinitions:
-        - Name: !Sub "${ServiceName}-container"
+        - Name: !Ref ServiceName
           Image: !Ref ImageUrl
           PortMappings:
             - ContainerPort: !Ref ContainerPort
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${ServiceName}-${EnvironmentName}"
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs
 
-  Service:
+  ECSService:
     Type: AWS::ECS::Service
+    DependsOn: ListenerRule
     Properties:
-      Cluster: !ImportValue
-        Fn::Sub: "${EnvironmentName}-ecs-cluster"
-      DesiredCount: 1
+      ServiceName: !Sub "${ServiceName}-${EnvironmentName}"
+      Cluster: !Ref ClusterName
+      DesiredCount: !Ref DesiredCount
       LaunchType: FARGATE
+      TaskDefinition: !Ref TaskDefinition
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
-          Subnets: 
-            !Split 
-              - "," 
-              - !ImportValue 
-                Fn::Sub: "${EnvironmentName}-public-subnet-ids"
+          Subnets: !Ref SubnetIds
           SecurityGroups:
-            - !ImportValue 
-              Fn::Sub: "${EnvironmentName}-ecs-sg"
-      TaskDefinition: !Ref TaskDefinition
-      ServiceName: !Sub "${EnvironmentName}-${ServiceName}-svc"
+            - !Ref SecurityGroupId
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroupArn
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref ListenerArn
+      Priority: 10
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupArn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - !Sub "/${ServiceName}*"

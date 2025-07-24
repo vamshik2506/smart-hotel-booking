@@ -1,18 +1,21 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ALB with blue-green target groups for ECS Fargate service (env-dev)
+Description: ALB with blue-green target groups for ECS Fargate service
 
 Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
   SubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
+    Type: List<AWS::EC2::Subnet::Id
+  EnvironmentName:
+    Type: String
+    Description: Environment name (e.g., dev, prod)
 
 Resources:
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB Security Group
+      GroupDescription: !Sub "${EnvironmentName} ALB Security Group"
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -23,7 +26,7 @@ Resources:
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: dev-alb
+      Name: !Sub "${EnvironmentName}-alb"
       Scheme: internet-facing
       Subnets: !Ref SubnetIds
       SecurityGroups:
@@ -32,7 +35,7 @@ Resources:
   BlueTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: blue-target-group
+      Name: !Sub "${EnvironmentName}-blue-tg"
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VpcId
@@ -43,7 +46,7 @@ Resources:
   GreenTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: green-target-group
+      Name: !Sub "${EnvironmentName}-green-tg"
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VpcId

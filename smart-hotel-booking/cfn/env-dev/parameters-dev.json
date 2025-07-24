@@ -1,18 +1,58 @@
 [
   {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "ServiceName",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/service-name}}"
+  },
+  {
     "ParameterKey": "ClusterName",
-    "ParameterValue": "smart-hotel-cluster"
+    "ParameterValue": "{{resolve:ssm:/booking/dev/cluster-name}}"
   },
   {
-    "ParameterKey": "BookingImageURI",
-    "ParameterValue": "placeholder"
+    "ParameterKey": "ContainerPort",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/container-port}}"
   },
   {
-    "ParameterKey": "InventoryImageURI",
-    "ParameterValue": "placeholder"
+    "ParameterKey": "DesiredCount",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/desired-count}}"
   },
   {
-    "ParameterKey": "LoyaltyImageURI",
-    "ParameterValue": "placeholder"
+    "ParameterKey": "TaskExecutionRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/task-execution-role}}"
+  },
+  {
+    "ParameterKey": "TaskRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/task-role}}"
+  },
+  {
+    "ParameterKey": "ImageUrl",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/image-url}}"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "REPLACE_WITH_VPC_ID"
+  },
+  {
+    "ParameterKey": "SubnetIds",
+    "ParameterValue": "REPLACE_WITH_SUBNET_IDS"
+  },
+  {
+    "ParameterKey": "SecurityGroupId",
+    "ParameterValue": "REPLACE_WITH_SECURITY_GROUP_ID"
+  },
+  {
+    "ParameterKey": "ListenerArn",
+    "ParameterValue": "REPLACE_WITH_LISTENER_ARN"
+  },
+  {
+    "ParameterKey": "TargetGroupArn",
+    "ParameterValue": "REPLACE_WITH_TARGET_GROUP_ARN"
+  },
+  {
+    "ParameterKey": "PipelineRoleArn",
+    "ParameterValue": "{{resolve:ssm:/booking/dev/pipeline-role-arn}}"
   }
 ]

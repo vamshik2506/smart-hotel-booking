@@ -1,45 +1,26 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Smart Hotel Booking - Step Function Workflow
+Description: Step Function for Invoice Generation
+
+Parameters:
+  GenerateInvoiceLambdaArn:
+    Type: String
 
 Resources:
-
-  BookingStateMachineRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: states.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: AllowLambdaInvoke
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: "*"
-
-  BookingStateMachine:
+  InvoiceStepFunction:
     Type: AWS::StepFunctions::StateMachine
     Properties:
-      RoleArn: !GetAtt BookingStateMachineRole.Arn
+      RoleArn: arn:aws:iam::<ACCOUNT_ID>:role/StepFunctionExecutionRole
       DefinitionString:
-        !Sub |
-          {
-            "StartAt": "StartBooking",
-            "States": {
-              "StartBooking": {
-                "Type": "Task",
-                "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:bookingLambda",
-                "End": true
+        !Sub
+          - |
+            {
+              "StartAt": "GenerateInvoice",
+              "States": {
+                "GenerateInvoice": {
+                  "Type": "Task",
+                  "Resource": "${GenerateInvoiceLambdaArn}",
+                  "End": true
+                }
               }
             }
-          }
-
-Outputs:
-  StateMachineArn:
-    Value: !Ref BookingStateMachine
+          - GenerateInvoiceLambdaArn: !Ref GenerateInvoiceLambdaArn
