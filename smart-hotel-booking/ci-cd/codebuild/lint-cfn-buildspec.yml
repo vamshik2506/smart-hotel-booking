@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - pip install cfn-lint cfn-nag
+
+  build:
+    commands:
+      - echo "Running cfn-lint..."
+      - cfn-lint ../../cfn/**/*.yml || true
+      - echo "Running cfn-nag..."
+      - |
+        for template in $(find ../../cfn -name "*.yml"); do
+          echo "Scanning $template with cfn-nag"
+          cfn_nag_scan --input-path "$template" || true
+        done
+
+artifacts:
+  files:
+    - '**/*'

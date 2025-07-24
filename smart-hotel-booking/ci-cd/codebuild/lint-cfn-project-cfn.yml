@@ -15,6 +15,18 @@ Resources:
       Name: !Ref ProjectName
       Source:
         Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.9
+              commands:
+                - pip install cfn-lint
+            build:
+              commands:
+                - echo "Running cfn-lint on all YAML templates..."
+                - find . -name "*.yml" -print -exec cfn-lint {} \;
       Artifacts:
         Type: CODEPIPELINE
       Environment:
